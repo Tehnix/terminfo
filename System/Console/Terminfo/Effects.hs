@@ -39,7 +39,7 @@ wrapWith :: TermStr s => Capability s -> Capability s -> Capability (s -> s)
 wrapWith start end = do
     s <- start
     e <- end
-    return (\t -> s <#> t <#> e)
+    return (\t -> s <%> t <%> e)
 
 -- | Turns on standout mode before outputting the given
 -- text, and then turns it off.
@@ -100,7 +100,7 @@ data Attributes = Attributes {
                     boldAttr,
                     invisibleAttr,
                     protectedAttr :: Bool
-                -- NB: I'm not including the "alternate character set." 
+                -- NB: I'm not including the "alternate character set."
                 }
 
 -- | Sets the attributes on or off before outputting the given text,
@@ -110,7 +110,7 @@ withAttributes :: TermStr s => Capability (Attributes -> s -> s)
 withAttributes = do
     set <- setAttributes
     off <- allAttributesOff
-    return $ \attrs to -> set attrs <#> to <#> off
+    return $ \attrs to -> set attrs <%> to <%> off
 
 -- | Sets the attributes on or off.  This capability will always succeed;
 -- properties which cannot be set in the current terminal will be ignored.
@@ -129,7 +129,7 @@ setAttributes = usingSGR0 `mplus` manualSets
                                   (mkAttr invisibleAttr)
                                   (mkAttr protectedAttr)
                                   (0::Int) -- for alt. character sets
-        attrCap :: TermStr s => (Attributes -> Bool) -> Capability s 
+        attrCap :: TermStr s => (Attributes -> Bool) -> Capability s
                     -> Capability (Attributes -> s)
         attrCap f cap = do {to <- cap; return $ \a -> if f a then to else mempty}
                         `mplus` return (const mempty)
@@ -145,7 +145,7 @@ setAttributes = usingSGR0 `mplus` manualSets
                             ]
             return $ \a -> mconcat $ map ($ a) cs
 
-                                     
+
 
 -- | These attributes have all properties turned off.
 defaultAttributes :: Attributes

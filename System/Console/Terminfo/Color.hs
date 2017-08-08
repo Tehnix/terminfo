@@ -86,7 +86,7 @@ withColorCmd :: TermStr s => Capability (a -> s)
 withColorCmd getSet = do
     set <- getSet
     restore <- restoreDefaultColors
-    return $ \c t -> set c <#> t <#> restore
+    return $ \c t -> set c <%> t <%> restore
 
 -- | Sets the foreground color of all further text output, using
 -- either the @setaf@ or @setf@ capability.
@@ -112,13 +112,13 @@ setColorPair :: TermStr s => Capability (ColorPair -> s)
 setColorPair = do
     setf <- setForegroundColor
     setb <- setBackgroundColor
-    return (\(f,b) -> setf f <#> setb b)
+    return (\(f,b) -> setf f <%> setb b)
 
 type ColorPair = (Color,Color)
--}  
+-}
 
 
 -- | Restores foreground/background colors to their original
 -- settings.
-restoreDefaultColors :: TermStr s => Capability s 
+restoreDefaultColors :: TermStr s => Capability s
 restoreDefaultColors = tiGetOutput1 "op"

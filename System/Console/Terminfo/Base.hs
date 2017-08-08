@@ -7,9 +7,9 @@
 -- Stability   : experimental
 -- Portability : portable (FFI)
 --
--- This module provides a low-level interface to the C functions of the 
--- terminfo library. 
--- 
+-- This module provides a low-level interface to the C functions of the
+-- terminfo library.
+--
 -- NOTE: Since this library is built on top of the curses interface, it is not thread-safe.
 
 module System.Console.Terminfo.Base(
@@ -39,7 +39,7 @@ module System.Console.Terminfo.Base(
                             LinesAffected,
                             -- ** Monoid functions
                             Monoid(..),
-                            (<#>),
+                            (<%>),
                             ) where
 
 
@@ -72,7 +72,7 @@ foreign import ccall "&" del_curterm :: FunPtr (Ptr TERMINAL -> IO ())
 foreign import ccall setupterm :: CString -> CInt -> Ptr CInt -> IO ()
 
 -- | Initialize the terminfo library to the given terminal entry.
--- 
+--
 -- Throws a 'SetupTermError' if the terminfo database could not be read.
 setupTerm :: String -> IO Terminal
 setupTerm term =
@@ -104,11 +104,11 @@ instance Exception SetupTermError where
 
 -- | Initialize the terminfo library, using the @TERM@ environmental variable.
 -- If @TERM@ is not set, we use the generic, minimal entry @dumb@.
--- 
+--
 -- Throws a 'SetupTermError' if the terminfo database could not be read.
 setupTermFromEnv :: IO Terminal
 setupTermFromEnv = do
-    env_term <- handle handleBadEnv $ getEnv "TERM" 
+    env_term <- handle handleBadEnv $ getEnv "TERM"
     let term = if null env_term then "dumb" else env_term
     setupTerm term
   where
@@ -155,7 +155,7 @@ instance Monoid TermOutput where
     TermOutput xs `mappend` TermOutput ys = TermOutput (xs . ys)
 #endif
 
-termText :: String -> TermOutput 
+termText :: String -> TermOutput
 termText str = TermOutput (TOStr str :)
 
 -- | Write the terminal output to the standard output device.
@@ -182,11 +182,11 @@ writeToTerm putc h (TOCmd numLines s)
     | otherwise = hPutStr h s
 writeToTerm _ h (TOStr s) = hPutStr h s
 
-infixl 2 <#>
+infixl 2 <%>
 
 -- | An operator version of 'mappend'.
-(<#>) :: Monoid m => m -> m -> m
-(<#>) = mappend
+(<%>) :: Monoid m => m -> m -> m
+(<%>) = mappend
 ---------------------------------
 
 -- | A feature or operation which a 'Terminal' may define.
@@ -195,7 +195,7 @@ newtype Capability a = Capability (Terminal -> IO (Maybe a))
 getCapability :: Terminal -> Capability a -> Maybe a
 getCapability term (Capability f) = unsafePerformIO $ withCurTerm term (f term)
 
--- Note that the instances for Capability of Functor, Monad and MonadPlus 
+-- Note that the instances for Capability of Functor, Monad and MonadPlus
 -- use the corresponding instances for Maybe.
 instance Functor Capability where
     fmap f (Capability g) = Capability $ \t -> fmap (fmap f) (g t)
@@ -227,7 +227,7 @@ instance MonadPlus Capability where
 foreign import ccall tigetnum :: CString -> IO CInt
 
 -- | Look up a numeric capability in the terminfo database.
-tiGetNum :: String -> Capability Int 
+tiGetNum :: String -> Capability Int
 tiGetNum cap = Capability $ const $ do
                 n <- fmap fromEnum (withCString cap tigetnum)
                 if n >= 0
@@ -235,28 +235,28 @@ tiGetNum cap = Capability $ const $ do
                     else return Nothing
 
 foreign import ccall tigetflag :: CString -> IO CInt
--- | Look up a boolean capability in the terminfo database.  
--- 
+-- | Look up a boolean capability in the terminfo database.
+--
 -- Unlike 'tiGuardFlag', this capability never fails; it returns 'False' if the
--- capability is absent or set to false, and returns 'True' otherwise.  
--- 
+-- capability is absent or set to false, and returns 'True' otherwise.
+--
 tiGetFlag :: String -> Capability Bool
 tiGetFlag cap = Capability $ const $ fmap (Just . (>0)) $
                         withCString cap tigetflag
-                
+
 -- | Look up a boolean capability in the terminfo database, and fail if
 -- it\'s not defined.
 tiGuardFlag :: String -> Capability ()
 tiGuardFlag cap = tiGetFlag cap >>= guard
-                
+
 foreign import ccall tigetstr :: CString -> IO CString
 
-{-# DEPRECATED tiGetStr "use tiGetOutput instead." #-} 
+{-# DEPRECATED tiGetStr "use tiGetOutput instead." #-}
 -- | Look up a string capability in the terminfo database.  NOTE: This function is deprecated; use
 -- 'tiGetOutput1' instead.
 tiGetStr :: String -> Capability String
 tiGetStr cap = Capability $ const $ do
-                result <- withCString cap tigetstr 
+                result <- withCString cap tigetstr
                 if result == nullPtr || result == neg1Ptr
                     then return Nothing
                     else fmap Just (peekCString result)
@@ -268,18 +268,18 @@ tiGetStr cap = Capability $ const $ do
 ---------------
 
 
-                    
+
 foreign import ccall tparm ::
-    CString -> CLong -> CLong -> CLong -> CLong -> CLong -> CLong 
+    CString -> CLong -> CLong -> CLong -> CLong -> CLong -> CLong
     -> CLong -> CLong -> CLong -- p1,...,p9
     -> IO CString
 
 -- Note: I may want to cut out the middleman and pipe tGoto/tGetStr together
 -- with tput without a String marshall in the middle.
--- directly without 
+-- directly without
 
 tParm :: String -> Capability ([Int] -> String)
-tParm cap = Capability $ \t -> return $ Just 
+tParm cap = Capability $ \t -> return $ Just
         $ \ps -> unsafePerformIO $ withCurTerm t $
                     tparm' (map toEnum ps ++ repeat 0)
     where tparm' (p1:p2:p3:p4:p5:p6:p7:p8:p9:_)
@@ -290,7 +290,7 @@ tParm cap = Capability $ \t -> return $ Just
                     else peekCString result
           tparm' _ = fail "tParm: List too short"
 
--- | Look up an output capability in the terminfo database.  
+-- | Look up an output capability in the terminfo database.
 tiGetOutput :: String -> Capability ([Int] -> LinesAffected -> TermOutput)
 tiGetOutput cap = do
     str <- tiGetStr cap
@@ -319,7 +319,7 @@ tPuts s n putc = withCString s $ \c_str -> tputs c_str (toEnum n) putc
 
 -- | Look up an output capability which takes a fixed number of parameters
 -- (for example, @Int -> Int -> TermOutput@).
--- 
+--
 -- For capabilities which may contain variable-length
 -- padding, use 'tiGetOutput' instead.
 tiGetOutput1 :: forall f . OutputCap f => String -> Capability f
@@ -336,7 +336,7 @@ class OutputCap f where
     outputCap :: ([Int] -> String) -> [Int] -> f
 
 instance OutputCap [Char] where
-    hasOkPadding _ = not . strHasPadding 
+    hasOkPadding _ = not . strHasPadding
     outputCap f xs = f (reverse xs)
 
 instance OutputCap TermOutput where
